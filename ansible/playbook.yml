@@ -1,0 +1,113 @@
+- name: Install Docker
+  hosts: localhost
+  connection: local
+  become: true
+
+  tasks:
+    - name: Install necessary software for Docker.
+      apt:
+        name: "{{ item }}"
+        state: latest
+        update_cache: yes
+      loop:
+        - ca-certificates
+        - curl
+        - gnupg
+
+    - name: Add Docker GPG apt Key.
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker Repository.
+      apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu jammy stable
+        state: present
+
+    - name: Update apt and install docker-ce.
+      apt:
+        name: docker-ce
+        state: latest
+        update_cache: true
+
+- name: Install software common to all servers.
+  hosts: localhost
+  connection: local
+  become: true
+
+  tasks:
+    - name: Install nginx, certbot, etc.
+      apt:
+        name: "{{ item }}"
+        state: latest
+        update_cache: yes
+      loop:
+        - nginx
+        - certbot
+        - python3-certbot-nginx
+        - virtualenv
+        - python3-setuptools
+        - curl
+        - git
+        - iptables-persistent
+
+    - name: Install docker-compose.
+      pip:
+        name: docker-compose
+
+- name: Set up a default firewall.
+  hosts: localhost
+  connection: local
+  become: true
+
+  tasks:
+    - name: Allow related and established connections
+      ansible.builtin.iptables:
+        chain: INPUT
+        ctstate: ESTABLISHED,RELATED
+        jump: ACCEPT
+
+    - name: Allow SSH traffic from VPN IP.
+      iptables:
+        chain: INPUT
+        protocol: tcp
+        destination_port: 8324
+        source: 206.189.250.160
+        jump: ACCEPT
+
+    - name: Allow SSH traffic from GitLab server (for CI/CD).
+      iptables:
+        chain: INPUT
+        protocol: tcp
+        destination_port: 8324
+        source: 31.220.82.165
+        jump: ACCEPT
+
+    - name: Allow private networking.
+      iptables:
+        chain: INPUT
+        protocol: all
+        source: 10.0.0.0/8
+        jump: ACCEPT
+
+    - name: Allow ping.
+      iptables:
+        chain: INPUT
+        protocol: icmp
+        jump: ACCEPT
+
+    - name: Allow everything localhost.
+      iptables:
+        chain: INPUT
+        in_interface: lo
+        jump: ACCEPT
+
+    - name: Set INPUT policy to drop (drop everything that is not explicitly allowed).
+      iptables:
+        chain: INPUT
+        policy: DROP
+
+    - name: Save iptables rules.
+      community.general.iptables_state:
+        state: saved
+        path: /etc/iptables/rules.v4

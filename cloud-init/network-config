@@ -1,0 +1,14 @@
+version: 2
+ethernets:
+  eth0:
+    dhcp4: yes
+    nameservers:
+      addresses:
+        - 8.8.8.8
+        - 8.8.4.4
+  ens3:
+    dhcp4: yes
+    nameservers:
+      addresses:
+        - 8.8.8.8
+        - 8.8.4.4
